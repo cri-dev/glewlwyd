@@ -1,5 +1,11 @@
 # Glewlwyd Oauth 2 authentication server
 
+This is the development branch for the next release 2.0. The next release is currently under development.
+
+See issue #35 (Glewlwyd 2.0 Roadmap) for the general architecture and design.
+
+A beta release will come out when it's ready, any help is welcome!
+
 [Oauth 2](https://oauth.net/2/) Server providing [JSON Web Tokens](https://jwt.io/) for identification.
 
 Lightweight, fast and easy to install on small systems. Requires a MySql or SQLite3 database. Handles LDAP or database for users backend.
