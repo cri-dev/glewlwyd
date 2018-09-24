@@ -279,7 +279,11 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
     jwt_add_grant(jwt, "salt", salt);
     jwt_add_grant(jwt, "username", username);
     jwt_add_grant(jwt, "type", "refresh_token");
+    jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
+    if (config->audience != NULL) {
+      jwt_add_grant(jwt, "aud", config->audience);
+    }
     jwt_add_grant_int(jwt, "expires_in", config->access_token_expiration);
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
@@ -317,7 +321,11 @@ char * generate_access_token(struct config_elements * config, const char * refre
     jwt_add_grant(jwt, "salt", salt);
     jwt_add_grant(jwt, "username", username);
     jwt_add_grant(jwt, "type", "access_token");
+    jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
+    if (config->audience != NULL) {
+      jwt_add_grant(jwt, "aud", config->audience);
+    }
     jwt_add_grant_int(jwt, "expires_in", config->access_token_expiration);
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
@@ -355,7 +363,11 @@ char * generate_session_token(struct config_elements * config, const char * user
     jwt_add_grant(jwt, "salt", salt);
     jwt_add_grant(jwt, "username", username);
     jwt_add_grant(jwt, "type", "session_token");
+    jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
+    if (config->audience != NULL) {
+      jwt_add_grant(jwt, "aud", config->audience);
+    }
     jwt_add_grant_int(jwt, "expires_in", config->session_expiration);
     token = jwt_encode_str(jwt);
     if (token == NULL) {
@@ -390,7 +402,11 @@ char * generate_client_access_token(struct config_elements * config, const char 
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
     }
+    jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
+    if (config->audience != NULL) {
+      jwt_add_grant(jwt, "aud", config->audience);
+    }
     jwt_add_grant_int(jwt, "expires_in", config->access_token_expiration);
     token = jwt_encode_str(jwt);
     if (token != NULL) {

@@ -56,6 +56,8 @@ int main (int argc, char ** argv) {
   }
   
   // Init config structure with default values
+  config->issuer = NULL;
+  config->audience = NULL;
   config->config_file = NULL;
   config->url_prefix = NULL;
   config->log_mode = Y_LOG_MODE_NONE;
@@ -275,6 +277,8 @@ void exit_server(struct config_elements ** config, int exit_value) {
 
   if (config != NULL && *config != NULL) {
     // Cleaning data
+    o_free((*config)->issuer);
+    o_free((*config)->audience);
     o_free((*config)->config_file);
     o_free((*config)->url_prefix);
     o_free((*config)->log_file);
@@ -368,9 +372,11 @@ void exit_server(struct config_elements ** config, int exit_value) {
  */
 int build_config_from_args(int argc, char ** argv, struct config_elements * config) {
   int next_option;
-  const char * short_options = "c::p::u::m::l::f::h::v::";
+  const char * short_options = "a::i::c::p::u::m::l::f::h::v::";
   char * tmp = NULL, * to_free = NULL, * one_log_mode = NULL;
   static const struct option long_options[]= {
+    {"issuer", optional_argument, NULL, 'i'},
+    {"audience", optional_argument, NULL, 'a'},
     {"config-file", optional_argument, NULL, 'c'},
     {"port", optional_argument, NULL, 'p'},
     {"url-prefix", optional_argument, NULL, 'u'},
@@ -387,6 +393,30 @@ int build_config_from_args(int argc, char ** argv, struct config_elements * conf
       next_option = getopt_long(argc, argv, short_options, long_options, NULL);
       
       switch (next_option) {
+        case 'a':
+          if (optarg != NULL) {
+            config->audience = o_strdup(optarg);
+            if (config->audience == NULL) {
+              fprintf(stderr, "Error allocating config->audience, exiting\n");
+              exit_server(&config, GLEWLWYD_STOP);
+            }
+          } else {
+            fprintf(stderr, "Error!\nNo audience specified\n");
+            return 0;
+          }
+          break;
+        case 'i':
+          if (optarg != NULL) {
+            config->issuer = o_strdup(optarg);
+            if (config->issuer == NULL) {
+              fprintf(stderr, "Error allocating config->issuer, exiting\n");
+              exit_server(&config, GLEWLWYD_STOP);
+            }
+          } else {
+            fprintf(stderr, "Error!\nNo issuer specified\n");
+            return 0;
+          }
+          break;
         case 'c':
           if (optarg != NULL) {
             config->config_file = o_strdup(optarg);
@@ -521,6 +551,10 @@ void print_help(FILE * output) {
   fprintf(output, "\n");
   fprintf(output, "Command-line options:\n");
   fprintf(output, "\n");
+  fprintf(output, "-i --issuer=ISSUER\n");
+  fprintf(output, "\tThe value to populate the iss: claim\n");
+  fprintf(output, "-a --audience=AUDIENCE\n");
+  fprintf(output, "\tThe value to populate the aud: claim\n");
   fprintf(output, "-c --config-file=PATH\n");
   fprintf(output, "\tPath to configuration file\n");
   fprintf(output, "-p --port=PORT\n");
@@ -647,6 +681,30 @@ int build_config_from_file(struct config_elements * config) {
     config->instance->port = (uint)port;
   }
   
+  if (config->issuer == NULL) {
+    // Get issuer
+    if (config_lookup_string(&cfg, "issuer", &cur_prefix)) {
+      config->issuer = o_strdup(cur_prefix);
+      if (config->issuer == NULL) {
+        fprintf(stderr, "Error allocating config->issuer, exiting\n");
+        config_destroy(&cfg);
+        return 0;
+      }
+    }
+  }
+
+  if (config->audience == NULL) {
+    // Get audience
+    if (config_lookup_string(&cfg, "audience", &cur_prefix)) {
+      config->audience = o_strdup(cur_prefix);
+      if (config->audience == NULL) {
+        fprintf(stderr, "Error allocating config->audience, exiting\n");
+        config_destroy(&cfg);
+        return 0;
+      }
+    }
+  }
+
   if (config->url_prefix == NULL) {
     // Get prefix url
     if (config_lookup_string(&cfg, "url_prefix", &cur_prefix)) {

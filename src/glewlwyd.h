@@ -216,6 +216,8 @@ struct _reset_password_config {
 };
 
 struct config_elements {
+  char *                          issuer;
+  char *                          audience;
   char *                          config_file;
   char *                          url_prefix;
   unsigned long                   log_mode;
