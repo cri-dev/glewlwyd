@@ -463,6 +463,50 @@ int callback_glewlwyd_user_scope_delete (const struct _u_request * request, stru
 }
 
 /**
+ * User site grant endpoints
+ */
+int callback_glewlwyd_get_user_session_site_grant (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * j_session = session_or_access_token_check(config, u_map_get(request->map_cookie, config->session_key), u_map_get(request->map_header, "Authorization"));
+  json_t * j_site_grant;
+  
+  if (!check_result_value(j_session, G_OK)) {
+    response->status = 500;
+  } else {
+    j_site_grant = get_user_site_grant(config, json_string_value(json_object_get(json_object_get(j_session, "grants"), "username")));
+    if (check_result_value(j_site_grant, G_OK)) {
+      ulfius_set_json_body_response(response, 200, json_object_get(j_site_grant, "site"));
+    } else {
+      response->status = 500;
+    }
+    json_decref(j_site_grant);
+  }
+  json_decref(j_session);
+  
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_glewlwyd_user_site_delete (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  int res;
+  json_t * j_site, * j_session;
+  
+  // Check if user has access to sites
+  j_session = session_or_access_token_check(config, u_map_get(request->map_cookie, config->session_key), u_map_get(request->map_header, "Authorization"));
+  j_site = auth_check_user_site(((struct config_elements *)user_data), json_string_value(json_object_get(json_object_get(j_session, "grants"), "username")), u_map_get(request->map_post_body, "site"));
+  if (!check_result_value(j_site, G_OK)) {
+    response->status = 403;
+    res = U_CALLBACK_CONTINUE;
+  } else {
+    res = 0; // delete_client_user_site_access(config, u_map_get(request->map_post_body, "client_id"), json_string_value(json_object_get(json_object_get(j_session, "grants"), "username")), u_map_get(request->map_post_body, "site"));
+  }
+  json_decref(j_site);
+  json_decref(j_session);
+  
+  return res;
+}
+
+/**
  * Authorization type endpoints
  */
 int callback_glewlwyd_get_authorization (const struct _u_request * request, struct _u_response * response, void * user_data) {
@@ -614,6 +658,109 @@ int callback_glewlwyd_delete_scope (const struct _u_request * request, struct _u
     response->status = 500;
   }
   json_decref(j_scope);
+  return U_CALLBACK_CONTINUE;
+}
+
+/**
+ * Site CRUD endpoints
+ */
+int callback_glewlwyd_get_list_site (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * j_result = get_site_list(config);
+  
+  if (check_result_value(j_result, G_OK)) {
+    ulfius_set_json_body_response(response, 200, json_object_get(j_result, "site"));
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_get_list_site - Error getting site list");
+    response->status = 500;
+  }
+  json_decref(j_result);
+  return U_OK;
+}
+
+int callback_glewlwyd_get_site (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * j_result = get_site(config, u_map_get(request->map_url, "site"));
+  
+  if (check_result_value(j_result, G_OK)) {
+    ulfius_set_json_body_response(response, 200, json_object_get(j_result, "site"));
+  } else if (check_result_value(j_result, G_ERROR_NOT_FOUND)) {
+    response->status = 404;
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_get_list_site - Error getting site list");
+    response->status = 500;
+  }
+  json_decref(j_result);
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_glewlwyd_add_site (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * json_req_body = ulfius_get_json_body_request(request, NULL);
+  json_t * j_result = is_site_valid(config, json_req_body, 1);
+  
+  if (j_result != NULL && json_array_size(j_result) == 0) {
+    if (add_site(config, json_req_body) != G_OK) {
+      response->status = 500;
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_add_site - Error adding new site");
+    }
+  } else if (j_result != NULL && json_array_size(j_result) > 0) {
+    ulfius_set_json_body_response(response, 400, j_result);
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_add_site - Error is_site_valid");
+    response->status = 500;
+  }
+  json_decref(j_result);
+  json_decref(json_req_body);
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_glewlwyd_set_site (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * j_site = get_site(config, u_map_get(request->map_url, "site")), * j_result;
+  
+  if (check_result_value(j_site, G_OK)) {
+    json_t * json_req_body = ulfius_get_json_body_request(request, NULL);
+    j_result = is_site_valid(config, json_req_body, 0);
+    if (j_result != NULL && json_array_size(j_result) == 0) {
+      if (set_site(config, u_map_get(request->map_url, "site"), json_req_body) != G_OK) {
+        response->status = 500;
+        y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_set_site - Error adding new site");
+      }
+    } else if (j_result != NULL && json_array_size(j_result) > 0) {
+      ulfius_set_json_body_response(response, 400, j_result);
+    } else {
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_set_site - Error is_site_valid");
+      response->status = 500;
+    }
+    json_decref(j_result);
+    json_decref(json_req_body);
+  } else if (check_result_value(j_site, G_ERROR_NOT_FOUND)) {
+    response->status = 404;
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_set_site - Error get_site");
+    response->status = 500;
+  }
+  json_decref(j_site);
+  return U_CALLBACK_CONTINUE;
+}
+
+int callback_glewlwyd_delete_site (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  struct config_elements * config = (struct config_elements *)user_data;
+  json_t * j_site = get_site(config, u_map_get(request->map_url, "site"));
+  
+  if (check_result_value(j_site, G_OK)) {
+    if (delete_site(config, u_map_get(request->map_url, "site")) != G_OK) {
+      response->status = 500;
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_delete_site - Error adding new site");
+    }
+  } else if (check_result_value(j_site, G_ERROR_NOT_FOUND)) {
+    response->status = 404;
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_glewlwyd_delete_site - Error get_site");
+    response->status = 500;
+  }
+  json_decref(j_site);
   return U_CALLBACK_CONTINUE;
 }
 

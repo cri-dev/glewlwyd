@@ -419,6 +419,67 @@ json_t * get_user_scope_grant_ldap(struct config_elements * config, const char *
 }
 
 /**
+ * Get the list of available sites for a specific user
+ */
+json_t * get_user_site_grant(struct config_elements * config, const char * username) {
+  json_t * j_res = NULL;
+  
+  if (username != NULL) {
+    if (config->has_auth_ldap) {
+      j_res = get_user_site_grant_ldap(config, username);
+    }
+    if (config->has_auth_database && !check_result_value(j_res, G_OK)) {
+      json_decref(j_res);
+      j_res = get_user_site_grant_database(config, username);
+    }
+  } else {
+    j_res = json_pack("{si}", "result", G_ERROR_PARAM);
+  }
+  return j_res;
+}
+
+/**
+ * Get the list of available sites for a specific user in the database backend
+ */
+json_t * get_user_site_grant_database(struct config_elements * config, const char * username) {
+  json_t * j_query, * j_result, * j_return;
+  int res;
+  char * username_escaped = h_escape_string(config->conn, username), 
+       * clause_where_site = msprintf("IN (SELECT `gs_id` FROM `%s` WHERE `gu_id` = (SELECT `gu_id` FROM `%s` WHERE `gu_login`='%s'))", GLEWLWYD_TABLE_USER_SITE, GLEWLWYD_TABLE_USER, username_escaped);
+  
+  j_query = json_pack("{sss[ss]s{s{ssss}}}",
+                      "table",
+                      GLEWLWYD_TABLE_SITE,
+                      "columns",
+                        "gs_name AS name",
+                        "gs_description AS description",
+                      "where",
+                        "gs_id",
+                          "operator",
+                          "raw",
+                          "value",
+                          clause_where_site);
+  o_free(username_escaped);
+  o_free(clause_where_site);
+  res = h_select(config->conn, j_query, &j_result, NULL);
+  json_decref(j_query);
+  if (res == H_OK) {
+    j_return = json_pack("{siso}", "result", G_OK, "site", j_result);
+  } else {
+    j_return = json_pack("{si}", "result", G_ERROR_DB);
+  }
+  return j_return;
+}
+
+/**
+ * Get the list of available sites for a specific user in the ldap backend
+ */
+json_t * get_user_site_grant_ldap(struct config_elements * config, const char * username) {
+  json_t * j_return   = NULL;
+  return j_return;
+}
+
+/**
  * All inclusive authentication check for a user
  */
 json_t * auth_check_user_credentials_scope(struct config_elements * config, const char * username, const char * password, const char * scope_list) {
@@ -880,6 +941,114 @@ json_t * auth_check_user_scope_ldap(struct config_elements * config, const char 
     ldap_msgfree(answer);
   }
   ldap_unbind_ext(ldap, NULL, NULL);
+  return res;
+}
+
+/**
+ * Check the site list specified for the database user and return the filtered site_list
+ */
+json_t * auth_check_user_site_database(struct config_elements * config, const char * username, const char * site_list) {
+  json_t * j_query, * j_result, * site_list_allowed, * j_value;
+  int res;
+  char * site, * site_escaped, * saveptr, * site_list_escaped = NULL, * site_list_save = o_strdup(site_list), * login_escaped = h_escape_string(config->conn, username), * site_list_join;
+  char * where_clause, * tmp;
+  size_t index;
+  
+  if (site_list == NULL || username == NULL) {
+    site_list_allowed = json_pack("{si}", "result", G_ERROR_PARAM);
+  } else if (site_list_save != NULL && login_escaped != NULL) {
+    site = strtok_r(site_list_save, " ", &saveptr);
+    while (site != NULL) {
+      site_escaped = h_escape_string(config->conn, site);
+      if (site_list_escaped != NULL) {
+        tmp = msprintf("%s,'%s'", site_list_escaped, site_escaped);
+        o_free(site_list_escaped);
+        site_list_escaped = tmp;
+      } else {
+        site_list_escaped = msprintf("'%s'", site_escaped);
+      }
+      o_free(site_escaped);
+      site = strtok_r(NULL, " ", &saveptr);
+    }
+    where_clause = msprintf("IN (SELECT gs_id FROM %s WHERE gu_id = (SELECT gu_id FROM %s WHERE gu_login='%s') AND gs_id IN (SELECT gs_id FROM %s WHERE gs_name IN (%s)))", GLEWLWYD_TABLE_USER_SITE, GLEWLWYD_TABLE_USER, login_escaped, GLEWLWYD_TABLE_SITE, site_list_escaped);
+    j_query = json_pack("{sss[s]s{s{ssss}}}",
+              "table",
+              GLEWLWYD_TABLE_SITE,
+              "columns",
+                "gs_name",
+              "where",
+                "gs_id",
+                  "operator",
+                  "raw",
+                  "value",
+                  where_clause);
+    o_free(site_list_escaped);
+    o_free(where_clause);
+    if (j_query != NULL) {
+      res = h_select(config->conn, j_query, &j_result, NULL);
+      json_decref(j_query);
+      if (res == H_OK) {
+        if (json_array_size(j_result) > 0) {
+          site_list_join = NULL;
+          json_array_foreach(j_result, index, j_value) {
+            if (site_list_join != NULL) {
+              tmp = msprintf("%s %s", site_list_join, json_string_value(json_object_get(j_value, "gs_name")));
+              o_free(site_list_join);
+              site_list_join = tmp;
+            } else {
+              site_list_join = strdup(json_string_value(json_object_get(j_value, "gs_name")));
+            }
+          }
+          site_list_allowed = json_pack("{siss}", "result", G_OK, "site", site_list_join);
+          o_free(site_list_join);
+        } else {
+          site_list_allowed = json_pack("{si}", "result", G_ERROR_UNAUTHORIZED);
+        }
+        json_decref(j_result);
+      } else {
+        y_log_message(Y_LOG_LEVEL_ERROR, "auth_check_user_site_database - Error executing sql query");
+        site_list_allowed = json_pack("{si}", "result", G_ERROR_DB);
+      }
+    } else {
+      y_log_message(Y_LOG_LEVEL_ERROR, "auth_check_user_site_database - Error allocating resources for j_query");
+      site_list_allowed = json_pack("{si}", "result", G_ERROR);
+    }
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "auth_check_user_site_database - Error allocating resources for site_list_save %s or login_escaped %s or site_list_escaped %s", site_list_save, login_escaped, site_list_escaped);
+    site_list_allowed = json_pack("{si}", "result", G_ERROR);
+  }
+  o_free(site_list_save);
+  o_free(login_escaped);
+  return site_list_allowed;
+}
+
+/**
+ * Check if user is allowed for the site_list specified
+ * Return a refined list of site
+ */
+json_t * auth_check_user_site(struct config_elements * config, const char * username, const char * site_list) {
+  json_t * j_res = NULL;
+  
+  if (site_list != NULL) {
+    if (config->has_auth_ldap) {
+      j_res = auth_check_user_site_ldap(config, username, site_list);
+    }
+    if (config->has_auth_database && (j_res == NULL || !check_result_value(j_res, G_OK))) {
+      json_decref(j_res);
+      j_res = auth_check_user_site_database(config, username, site_list);
+    }
+  } else {
+    j_res = json_pack("{si}", "result", G_ERROR_UNAUTHORIZED);
+  }
+  return j_res;
+}
+
+/**
+ * Check if ldap user is allowed for the site_list specified
+ * Return a refined list of site
+ */
+json_t * auth_check_user_site_ldap(struct config_elements * config, const char * username, const char * site_list) {
+  json_t * res    = NULL;
   return res;
 }
 

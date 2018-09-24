@@ -96,6 +96,7 @@
 // Data tables
 #define GLEWLWYD_TABLE_CLIENT                    "g_client"
 #define GLEWLWYD_TABLE_SCOPE                     "g_scope"
+#define GLEWLWYD_TABLE_SITE                      "g_site"
 #define GLEWLWYD_TABLE_USER                      "g_user"
 #define GLEWLWYD_TABLE_RESOURCE                  "g_resource"
 #define GLEWLWYD_TABLE_REDIRECT_URI              "g_redirect_uri"
@@ -111,6 +112,7 @@
 #define GLEWLWYD_TABLE_CLIENT_AUTHORIZATION_TYPE "g_client_authorization_type"
 #define GLEWLWYD_TABLE_RESOURCE_SCOPE            "g_resource_scope"
 #define GLEWLWYD_TABLE_USER_SCOPE                "g_user_scope"
+#define GLEWLWYD_TABLE_USER_SITE                 "g_user_site"
 #define GLEWLWYD_TABLE_CLIENT_SCOPE              "g_client_scope"
 #define GLEWLWYD_TABLE_CODE_SCOPE                "g_code_scope"
 #define GLEWLWYD_TABLE_REFRESH_TOKEN_SCOPE       "g_refresh_token_scope"
@@ -305,6 +307,11 @@ json_t * auth_check_user_scope(struct config_elements * config, const char * use
 json_t * auth_check_user_scope_database(struct config_elements * config, const char * username, const char * scope_list);
 json_t * auth_check_user_scope_ldap(struct config_elements * config, const char * username, const char * scope_list);
 
+// Validate user site
+json_t * auth_check_user_site(struct config_elements * config, const char * username, const char * site_list);
+json_t * auth_check_user_site_database(struct config_elements * config, const char * username, const char * site_list);
+json_t * auth_check_user_site_ldap(struct config_elements * config, const char * username, const char * site_list);
+
 // Validate client login/password credentials
 json_t * auth_check_client_credentials(struct config_elements * config, const char * client_id, const char * password);
 json_t * auth_check_client_credentials_http(struct config_elements * config, const char * client_id, const char * password);
@@ -331,6 +338,10 @@ json_t * get_user_scope_grant(struct config_elements * config, const char * user
 json_t * get_user_scope_grant_database(struct config_elements * config, const char * username);
 json_t * get_user_scope_grant_ldap(struct config_elements * config, const char * username);
 
+json_t * get_user_site_grant(struct config_elements * config, const char * username);
+json_t * get_user_site_grant_database(struct config_elements * config, const char * username);
+json_t * get_user_site_grant_ldap(struct config_elements * config, const char * username);
+
 json_t * get_authorization_type(struct config_elements * config, const char * authorization_type);
 int set_authorization_type(struct config_elements * config, const char * authorization_type, json_t * j_authorization_type);
 json_t * is_authorization_type_valid(struct config_elements * config, json_t * j_authorization_type);
@@ -346,6 +357,14 @@ json_t * is_scope_valid(struct config_elements * config, json_t * j_scope, int a
 int add_scope(struct config_elements * config, json_t * j_scope);
 int set_scope(struct config_elements * config, const char * scope, json_t * j_scope);
 int delete_scope(struct config_elements * config, const char * scope);
+
+// Site crud
+json_t * get_site_list(struct config_elements * config);
+json_t * get_site(struct config_elements * config, const char * site);
+json_t * is_site_valid(struct config_elements * config, json_t * j_site, int add);
+int add_site(struct config_elements * config, json_t * j_site);
+int set_site(struct config_elements * config, const char * site, json_t * j_site);
+int delete_site(struct config_elements * config, const char * site);
 
 // User CRUD
 json_t * get_user_list(struct config_elements * config, const char * source, const char * search, long int offset, long int limit);
@@ -432,6 +451,10 @@ int callback_glewlwyd_get_user_session_scope_grant (const struct _u_request * re
 int callback_glewlwyd_set_user_scope_grant (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_user_scope_delete (const struct _u_request * request, struct _u_response * response, void * user_data);
 
+int callback_glewlwyd_get_user_session_site_grant (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_set_user_site_grant (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_user_site_delete (const struct _u_request * request, struct _u_response * response, void * user_data);
+
 int callback_glewlwyd_get_user_session_profile (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_set_user_profile (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_send_reset_user_profile (const struct _u_request * request, struct _u_response * response, void * user_data);
@@ -463,6 +486,12 @@ int callback_glewlwyd_get_scope (const struct _u_request * request, struct _u_re
 int callback_glewlwyd_add_scope (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_set_scope (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_delete_scope (const struct _u_request * request, struct _u_response * response, void * user_data);
+
+int callback_glewlwyd_get_list_site (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_get_site (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_add_site (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_set_site (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_glewlwyd_delete_site (const struct _u_request * request, struct _u_response * response, void * user_data);
 
 int callback_glewlwyd_get_list_resource (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_glewlwyd_get_resource (const struct _u_request * request, struct _u_response * response, void * user_data);

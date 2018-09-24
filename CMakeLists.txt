@@ -113,6 +113,7 @@ add_executable(glewlwyd ${CMAKE_CURRENT_SOURCE_DIR}/src/glewlwyd.h
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/client.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/admin.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/scope.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/site.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/resource.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/password.c
                 ${CMAKE_CURRENT_SOURCE_DIR}/src/glewlwyd.c )

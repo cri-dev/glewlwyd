@@ -190,6 +190,15 @@ int main (int argc, char ** argv) {
     ulfius_add_endpoint_by_val(config->instance, "DELETE", config->url_prefix, "/scope/:scope", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_delete_scope, (void*)config);
   }
 
+  // Site endpoints
+  ulfius_add_endpoint_by_val(config->instance, "*", config->url_prefix, "/site/", GLEWLWYD_CALLBACK_PRIORITY_AUTHENTICATION, &callback_glewlwyd_check_scope_admin, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "*", config->url_prefix, "/site/:site", GLEWLWYD_CALLBACK_PRIORITY_AUTHENTICATION, &callback_glewlwyd_check_scope_admin, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "GET", config->url_prefix, "/site/", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_get_list_site, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "GET", config->url_prefix, "/site/:site", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_get_site, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "POST", config->url_prefix, "/site/", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_add_site, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "PUT", config->url_prefix, "/site/:site", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_set_site, (void*)config);
+  ulfius_add_endpoint_by_val(config->instance, "DELETE", config->url_prefix, "/site/:site", GLEWLWYD_CALLBACK_PRIORITY_APPLICATION, &callback_glewlwyd_delete_site, (void*)config);
+
   // User endpoints
   ulfius_add_endpoint_by_val(config->instance, "*", config->url_prefix, "/user/", GLEWLWYD_CALLBACK_PRIORITY_AUTHENTICATION, &callback_glewlwyd_check_scope_admin, (void*)config);
   ulfius_add_endpoint_by_val(config->instance, "*", config->url_prefix, "/user/:username", GLEWLWYD_CALLBACK_PRIORITY_AUTHENTICATION, &callback_glewlwyd_check_scope_admin, (void*)config);
