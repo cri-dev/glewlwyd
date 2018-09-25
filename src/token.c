@@ -267,7 +267,7 @@ int serialize_session_token(struct config_elements * config, const char * userna
 /**
  * Generates a refresh_token from the specified parameters that are considered valid
  */
-char * generate_refresh_token(struct config_elements * config, const char * client_id, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, time_t now) {
+char * generate_refresh_token(struct config_elements * config, const char * client_id, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, const char * site_list, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -287,6 +287,9 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
     jwt_add_grant_int(jwt, "expires_in", config->access_token_expiration);
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
+    }
+    if (site_list != NULL) {
+      jwt_add_grant(jwt, "site", scope_list);
     }
     if (client_id != NULL) {
       jwt_add_grant(jwt, "client_id", client_id);
@@ -309,7 +312,7 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
 /**
  * Generates a access_token from the specified parameters that are considered valid
  */
-char * generate_access_token(struct config_elements * config, const char * refresh_token, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, const char * additional_property_name, const char * additional_property_value, time_t now) {
+char * generate_access_token(struct config_elements * config, const char * refresh_token, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, const char * site_list, const char * additional_property_name, const char * additional_property_value, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -329,6 +332,9 @@ char * generate_access_token(struct config_elements * config, const char * refre
     jwt_add_grant_int(jwt, "expires_in", config->access_token_expiration);
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
+    }
+    if (site_list != NULL) {
+      jwt_add_grant(jwt, "site", site_list);
     }
     if (additional_property_name != NULL && additional_property_value != NULL && o_strlen(additional_property_name) && o_strlen(additional_property_value)) {
       jwt_add_grant(jwt, additional_property_name, additional_property_value);
@@ -387,7 +393,7 @@ char * generate_session_token(struct config_elements * config, const char * user
 /**
  * Generates a client_access_token from the specified parameters that are considered valid
  */
-char * generate_client_access_token(struct config_elements * config, const char * client_id, const char * ip_source, const char * scope_list, time_t now) {
+char * generate_client_access_token(struct config_elements * config, const char * client_id, const char * ip_source, const char * scope_list, const char * site_list, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -401,6 +407,9 @@ char * generate_client_access_token(struct config_elements * config, const char 
     jwt_add_grant(jwt, "type", "client_token");
     if (config->use_scope && scope_list != NULL) {
       jwt_add_grant(jwt, "scope", scope_list);
+    }
+    if (site_list != NULL) {
+      jwt_add_grant(jwt, "site", site_list);
     }
     jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
@@ -426,7 +435,7 @@ char * generate_client_access_token(struct config_elements * config, const char 
 /**
  * Generates a authorization code from the specified parameters that are considered valid
  */
-char * generate_authorization_code(struct config_elements * config, const char * username, const char * client_id, const char * scope_list, const char * redirect_uri, const char * ip_source) {
+char * generate_authorization_code(struct config_elements * config, const char * username, const char * client_id, const char * scope_list, const char * site_list, const char * redirect_uri, const char * ip_source) {
   uuid_t uuid;
   char * code_value = o_malloc(37*sizeof(char)), * code_hash, * clause_scope, * escape;
   char * save_scope_list, * scope, * saveptr = NULL;

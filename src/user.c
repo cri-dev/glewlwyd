@@ -1309,10 +1309,19 @@ json_t * get_user_list_ldap(struct config_elements * config, const char * search
  * Return the list of users in the database backend
  */
 json_t * get_user_list_database(struct config_elements * config, const char * search, long int offset, long int limit) {
+/*
   json_t * j_query, * j_result, * j_scope, * j_return, * j_entry, * j_scope_entry;
   int res;
   char * scope_clause;
   size_t index, i_scope;
+*/  
+
+// /*
+  json_t * j_query, * j_result, * j_scope, * j_site, * j_return, * j_entry, * j_scope_entry, * j_site_entry;
+  int res;
+  char * scope_clause, * site_clause;
+  size_t index, i_scope, i_site;
+// */
   
   j_query = json_pack("{sss[ssssss]sisi}",
                       "table",
@@ -1340,6 +1349,9 @@ json_t * get_user_list_database(struct config_elements * config, const char * se
   if (res == H_OK) {
     j_return = json_pack("{sis[]}", "result", G_OK, "user");
     json_array_foreach(j_result, index, j_entry) {
+        
+        
+        
       scope_clause = msprintf("IN (SELECT `gs_id` FROM %s WHERE `gu_id`='%" JSON_INTEGER_FORMAT "')", GLEWLWYD_TABLE_USER_SCOPE, json_integer_value(json_object_get(j_entry, "gu_id")));
       j_query = json_pack("{sss[s]s{s{ssss}}}",
                           "table",
@@ -1355,6 +1367,23 @@ json_t * get_user_list_database(struct config_elements * config, const char * se
       o_free(scope_clause);
       res = h_select(config->conn, j_query, &j_scope, NULL);
       json_decref(j_query);
+      
+      site_clause = msprintf("IN (SELECT `gs_id` FROM %s WHERE `gu_id`='%" JSON_INTEGER_FORMAT "')", GLEWLWYD_TABLE_USER_SITE, json_integer_value(json_object_get(j_entry, "gu_id")));
+      j_query = json_pack("{sss[s]s{s{ssss}}}",
+                          "table",
+                          GLEWLWYD_TABLE_SITE,
+                          "columns",
+                            "gs_name",
+                          "where",
+                            "gs_id",
+                              "operator",
+                              "raw",
+                              "value",
+                              site_clause);
+      o_free(site_clause);
+      res = h_select(config->conn, j_query, &j_site, NULL);
+      json_decref(j_query);
+
       if (res == H_OK) {
         if (json_integer_value(json_object_get(j_entry, "gu_enabled")) == 1) {
           json_object_set_new(j_entry, "enabled", json_true());
@@ -1363,11 +1392,19 @@ json_t * get_user_list_database(struct config_elements * config, const char * se
         }
         json_object_del(j_entry, "gu_id");
         json_object_del(j_entry, "gu_enabled");
+
         
         json_object_set_new(j_entry, "scope", json_array());
         json_array_foreach(j_scope, i_scope, j_scope_entry) {
           json_array_append(json_object_get(j_entry, "scope"), json_object_get(j_scope_entry, "gs_name"));
         }
+
+        json_object_set_new(j_entry, "site", json_array());
+        json_array_foreach(j_site, i_site, j_site_entry) {
+          json_array_append(json_object_get(j_entry, "site"), json_object_get(j_site_entry, "gs_name"));
+        }
+
+
         json_decref(j_scope);
         json_object_set_new(j_entry, "source", json_string("database"));
         
@@ -1381,6 +1418,53 @@ json_t * get_user_list_database(struct config_elements * config, const char * se
       } else {
         y_log_message(Y_LOG_LEVEL_ERROR, "get_user_list_database - Error executing j_query for scope");
       }
+
+      
+/*      
+      site_clause = msprintf("IN (SELECT `gs_id` FROM %s WHERE `gu_id`='%" JSON_INTEGER_FORMAT "')", GLEWLWYD_TABLE_USER_SITE, json_integer_value(json_object_get(j_entry, "gu_id")));
+      j_query = json_pack("{sss[s]s{s{ssss}}}",
+                          "table",
+                          GLEWLWYD_TABLE_SITE,
+                          "columns",
+                            "gs_name",
+                          "where",
+                            "gs_id",
+                              "operator",
+                              "raw",
+                              "value",
+                              site_clause);
+      o_free(site_clause);
+      res = h_select(config->conn, j_query, &j_site, NULL);
+      json_decref(j_query);
+      if (res == H_OK) {
+        if (json_integer_value(json_object_get(j_entry, "gu_enabled")) == 1) {
+          json_object_set_new(j_entry, "enabled", json_true());
+        } else {
+          json_object_set_new(j_entry, "enabled", json_false());
+        }
+        json_object_del(j_entry, "gu_id");
+        json_object_del(j_entry, "gu_enabled");
+        
+        json_object_set_new(j_entry, "site", json_array());
+        json_array_foreach(j_site, i_site, j_site_entry) {
+          json_array_append(json_object_get(j_entry, "site"), json_object_get(j_site_entry, "gs_name"));
+        }
+        json_decref(j_site);
+        json_object_set_new(j_entry, "source", json_string("database"));
+        
+        if (config->additional_property_name != NULL && o_strlen(config->additional_property_name)) {
+          json_object_set_new(j_entry, "additional_property_name", json_string(config->additional_property_name));
+        } else {
+          json_object_del(j_entry, "additional_property_value");
+        }
+        
+        json_array_append(json_object_get(j_return, "user"), j_entry);
+      } else {
+        y_log_message(Y_LOG_LEVEL_ERROR, "get_user_list_database - Error executing j_query for site");
+      }
+      */
+
+
     }
     json_decref(j_result);
   } else {
@@ -1796,10 +1880,10 @@ int i;
  * Add a new user in the database backend
  */
 int add_user_database(struct config_elements * config, json_t * j_user) {
-  json_t * j_query, * j_scope;
+  json_t * j_query, * j_scope, * j_site;
   int res, to_return;
   size_t index;
-  char * clause_login, * clause_scope, * escaped, * password;
+  char * clause_login, * clause_scope, * clause_site, * escaped, * password;
   
   if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
     escaped = h_escape_string(config->conn, json_string_value(json_object_get(j_user, "password")));
@@ -1849,6 +1933,29 @@ int add_user_database(struct config_elements * config, json_t * j_user) {
       if (json_array_size(json_object_get(j_query, "values")) > 0) {
         if (h_insert(config->conn, j_query, NULL) != H_OK) {
           y_log_message(Y_LOG_LEVEL_ERROR, "add_user_database - Error adding scope");
+        }
+      }
+      o_free(clause_login);
+      json_decref(j_query);
+    }
+    if (json_object_get(j_user, "site") != NULL ) {
+      escaped = h_escape_string(config->conn, json_string_value(json_object_get(j_user, "login")));
+      clause_login = msprintf("(SELECT `gu_id` FROM `%s` WHERE `gu_login`='%s')", GLEWLWYD_TABLE_USER, escaped);
+      o_free(escaped);
+      j_query = json_pack("{sss[]}",
+                          "table",
+                          GLEWLWYD_TABLE_USER_SITE,
+                          "values");
+      json_array_foreach(json_object_get(j_user, "site"), index, j_site) {
+        escaped = h_escape_string(config->conn, json_string_value(j_site));
+        clause_site = msprintf("(SELECT `gs_id` FROM `%s` WHERE `gs_name`='%s')", GLEWLWYD_TABLE_SITE, escaped);
+        o_free(escaped);
+        json_array_append_new(json_object_get(j_query, "values"), json_pack("{s{ss}s{ss}}", "gu_id", "raw", clause_login, "gs_id", "raw", clause_site));
+        o_free(clause_site);
+      }
+      if (json_array_size(json_object_get(j_query, "values")) > 0) {
+        if (h_insert(config->conn, j_query, NULL) != H_OK) {
+          y_log_message(Y_LOG_LEVEL_ERROR, "add_user_database - Error adding site");
         }
       }
       o_free(clause_login);

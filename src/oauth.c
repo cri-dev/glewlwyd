@@ -58,7 +58,7 @@ int check_auth_type_auth_code_grant (const struct _u_request * request, struct _
             if (auth_check_client_user_scope(config, u_map_get(request->map_url, "client_id"), json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), json_string_value(json_object_get(j_scope, "scope"))) == G_OK) {
               // User has granted access to the cleaned scope list for this client
               // Generate code, generate the url and redirect to it
-              authorization_code = generate_authorization_code(config, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), u_map_get(request->map_url, "client_id"), json_string_value(json_object_get(j_scope, "scope")), u_map_get(request->map_url, "redirect_uri"), ip_source);
+              authorization_code = generate_authorization_code(config, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), u_map_get(request->map_url, "client_id"), json_string_value(json_object_get(j_scope, "scope")), json_string_value(json_object_get(j_scope, "site")), u_map_get(request->map_url, "redirect_uri"), ip_source);
               redirect_url = msprintf("%s%scode=%s%s%s", u_map_get(request->map_url, "redirect_uri"), (o_strchr(u_map_get(request->map_url, "redirect_uri"), '?')!=NULL?"&":"?"), authorization_code, (u_map_get(request->map_url, "state")!=NULL?"&state=":""), (u_map_get(request->map_url, "state")!=NULL?u_map_get(request->map_url, "state"):""));
               ulfius_add_header_to_response(response, "Location", redirect_url);
               o_free(redirect_url);
@@ -85,7 +85,7 @@ int check_auth_type_auth_code_grant (const struct _u_request * request, struct _
           json_decref(j_scope);
         } else {
           // Generate code, generate the url and redirect to it
-          authorization_code = generate_authorization_code(config, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), u_map_get(request->map_url, "client_id"), NULL, u_map_get(request->map_url, "redirect_uri"), ip_source);
+          authorization_code = generate_authorization_code(config, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), u_map_get(request->map_url, "client_id"), NULL, NULL, u_map_get(request->map_url, "redirect_uri"), ip_source);
           redirect_url = msprintf("%s%scode=%s%s%s", u_map_get(request->map_url, "redirect_uri"), (o_strchr(u_map_get(request->map_url, "redirect_uri"), '?')!=NULL?"&":"?"), authorization_code, (u_map_get(request->map_url, "state")!=NULL?"&state=":""), (u_map_get(request->map_url, "state")!=NULL?u_map_get(request->map_url, "state"):""));
           ulfius_add_header_to_response(response, "Location", redirect_url);
           o_free(redirect_url);
@@ -139,7 +139,8 @@ int check_auth_type_access_token_request (const struct _u_request * request, str
              * redirect_uri = u_map_get(request->map_post_body, "redirect_uri"),
              * ip_source = get_ip_source(request),
              * client_id = u_map_get(request->map_post_body, "client_id"), 
-             * scope_list = NULL;
+             * scope_list = NULL, 
+             * site_list = NULL;
   time_t now;
   char * refresh_token, * access_token;
   
@@ -153,10 +154,11 @@ int check_auth_type_access_token_request (const struct _u_request * request, str
         if (config->use_scope) {
           scope_list = json_string_value(json_object_get(j_validate, "scope"));
         }
+        site_list = json_string_value(json_object_get(j_validate, "site"));
         time(&now);
-        refresh_token = generate_refresh_token(config, request->auth_basic_user, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_AUTHORIZATION_CODE_ACCESS_TOKEN, ip_source, scope_list, now);
+        refresh_token = generate_refresh_token(config, request->auth_basic_user, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_AUTHORIZATION_CODE_ACCESS_TOKEN, ip_source, scope_list, site_list, now);
         if (refresh_token != NULL) {
-          access_token = generate_access_token(config, refresh_token, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_AUTHORIZATION_CODE_ACCESS_TOKEN, ip_source, scope_list, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+          access_token = generate_access_token(config, refresh_token, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_AUTHORIZATION_CODE_ACCESS_TOKEN, ip_source, scope_list, site_list, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
           if (access_token != NULL) {
             // Disable gco_id entry
             j_query = json_pack("{sss{si}s{sI}}",
@@ -247,7 +249,7 @@ int check_auth_type_implicit_grant (const struct _u_request * request, struct _u
               // User is allowed for this scope
               if (auth_check_client_user_scope(config, u_map_get(request->map_url, "client_id"), json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), json_string_value(json_object_get(j_scope, "scope"))) == G_OK) {
                 // User has granted access to the cleaned scope list for this client
-                access_token = generate_access_token(config, NULL, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_scope, "scope")), json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+                access_token = generate_access_token(config, NULL, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_scope, "scope")), json_string_value(json_object_get(j_scope, "site")), json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
                 if (u_map_get(request->map_url, "state") != NULL) {
                   redirect_url = msprintf("%s%saccess_token=%s&token_type=bearer&expires_in=%d&state=%s", u_map_get(request->map_url, "redirect_uri"), (o_strchr(u_map_get(request->map_url, "redirect_uri"), '#')!=NULL?"&":"#"), access_token, config->access_token_expiration, u_map_get(request->map_url, "state"));
                 } else {
@@ -278,7 +280,7 @@ int check_auth_type_implicit_grant (const struct _u_request * request, struct _u
             json_decref(j_scope);
           } else {
             // Generate access_token, generate the url and redirect to it
-            access_token = generate_access_token(config, NULL, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+            access_token = generate_access_token(config, NULL, json_string_value(json_object_get(json_object_get(session_payload, "grants"), "username")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, NULL, NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
             redirect_url = msprintf("%s%saccess_token=%s&token_type=bearer&expires_in=%d%s", u_map_get(request->map_url, "redirect_uri"), (o_strchr(u_map_get(request->map_url, "redirect_uri"), '#')!=NULL?"&":"#"), access_token, config->access_token_expiration, (u_map_get(request->map_url, "state")!=NULL?u_map_get(request->map_url, "state"):""));
             ulfius_add_header_to_response(response, "Location", redirect_url);
             o_free(redirect_url);
@@ -349,9 +351,9 @@ int check_auth_type_resource_owner_pwd_cred (const struct _u_request * request, 
       j_user = get_user(config, u_map_get(request->map_post_body, "username"), NULL);
       if (check_result_value(j_user, G_OK)) {
         time(&now);
-        refresh_token = generate_refresh_token(config, request->auth_basic_user, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_result, "scope")), now);
+        refresh_token = generate_refresh_token(config, request->auth_basic_user, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_result, "scope")), json_string_value(json_object_get(j_result, "site")), now);
         if (refresh_token != NULL) {
-          access_token = generate_access_token(config, refresh_token, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_result, "scope")), json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+          access_token = generate_access_token(config, refresh_token, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), GLEWLWYD_AUHORIZATION_TYPE_RESOURCE_OWNER_PASSWORD_CREDENTIALS, ip_source, json_string_value(json_object_get(j_result, "scope")), json_string_value(json_object_get(j_result, "site")), json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
           if (access_token != NULL) {
               json_body = json_pack("{sssssssisi}",
                                     "token_type",
@@ -421,7 +423,7 @@ int check_auth_type_client_credentials_grant (const struct _u_request * request,
       j_scope_list = auth_check_client_scope(config, request->auth_basic_user, u_map_get(request->map_post_body, "scope"));
       if (check_result_value(j_scope_list, G_OK)) {
         time(&now);
-        access_token = generate_client_access_token(config, request->auth_basic_user, ip_source, json_string_value(json_object_get(j_scope_list, "scope")), now);
+        access_token = generate_client_access_token(config, request->auth_basic_user, ip_source, json_string_value(json_object_get(j_scope_list, "scope")), json_string_value(json_object_get(j_scope_list, "site")), now);
         if (access_token != NULL) {
           json_body = json_pack("{sssssisO}",
                                           "access_token", access_token,
@@ -442,7 +444,7 @@ int check_auth_type_client_credentials_grant (const struct _u_request * request,
       }
     } else {
       time(&now);
-      access_token = generate_client_access_token(config, request->auth_basic_user, ip_source, NULL, now);
+      access_token = generate_client_access_token(config, request->auth_basic_user, ip_source, NULL, NULL, now);
       if (access_token != NULL) {
         json_body = json_pack("{sssssi}",
                                         "access_token", access_token,
@@ -588,7 +590,7 @@ int get_access_token_from_refresh (const struct _u_request * request, struct _u_
                         new_scope_list = tmp;
                       }
                     }
-                    access_token = generate_access_token(config, refresh_token, jwt_get_grant(jwt, "username"), GLEWLWYD_AUHORIZATION_TYPE_REFRESH_TOKEN, ip_source, new_scope_list, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+                    access_token = generate_access_token(config, refresh_token, jwt_get_grant(jwt, "username"), GLEWLWYD_AUHORIZATION_TYPE_REFRESH_TOKEN, ip_source, new_scope_list, NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
                     o_free(new_scope_list);
                     if (access_token != NULL) {
                       json_body = json_pack("{sssssisi}",
@@ -617,7 +619,7 @@ int get_access_token_from_refresh (const struct _u_request * request, struct _u_
                   }
                   json_decref(j_result2);
                 } else {
-                  access_token = generate_access_token(config, refresh_token, jwt_get_grant(jwt, "username"), GLEWLWYD_AUHORIZATION_TYPE_REFRESH_TOKEN, ip_source, new_scope_list, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
+                  access_token = generate_access_token(config, refresh_token, jwt_get_grant(jwt, "username"), GLEWLWYD_AUHORIZATION_TYPE_REFRESH_TOKEN, ip_source, new_scope_list, NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_name")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_name")):NULL, json_object_get(json_object_get(j_user, "user"), "additional_property_value")!=json_null()?json_string_value(json_object_get(json_object_get(j_user, "user"), "additional_property_value")):NULL, now);
                   o_free(new_scope_list);
                   if (access_token != NULL) {
                     json_body = json_pack("{sssssisi}",
