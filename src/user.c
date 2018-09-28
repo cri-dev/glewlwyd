@@ -33,10 +33,10 @@
  * Get a specific user in the database backend
  */
 json_t * get_user_database(struct config_elements * config, const char * username) {
-  json_t * j_query, * j_result, * j_scope, * j_return, * j_scope_entry;
+  json_t * j_query, * j_result, * j_scope, * j_site, * j_return, * j_scope_entry, * j_site_entry;
   int res;
-  char * scope_clause;
-  size_t i_scope;
+  char * scope_clause, * site_clause;
+  size_t i_scope, i_site;
   
   j_query = json_pack("{sss[ssssss]s{ss}}",
                       "table",
@@ -71,6 +71,23 @@ json_t * get_user_database(struct config_elements * config, const char * usernam
       o_free(scope_clause);
       res = h_select(config->conn, j_query, &j_scope, NULL);
       json_decref(j_query);
+
+      site_clause = msprintf("IN (SELECT `gs_id` FROM %s WHERE `gu_id`='%" JSON_INTEGER_FORMAT "')", GLEWLWYD_TABLE_USER_SITE, json_integer_value(json_object_get(json_array_get(j_result, 0), "gu_id")));
+      j_query = json_pack("{sss[s]s{s{ssss}}}",
+                          "table",
+                          GLEWLWYD_TABLE_SITE,
+                          "columns",
+                            "gs_name",
+                          "where",
+                            "gs_id",
+                              "operator",
+                              "raw",
+                              "value",
+                              site_clause);
+      o_free(site_clause);
+      res = h_select(config->conn, j_query, &j_site, NULL);
+      json_decref(j_query);
+      
       if (res == H_OK) {
         if (json_integer_value(json_object_get(json_array_get(j_result, 0), "gu_enabled")) == 1) {
           json_object_set_new(json_array_get(j_result, 0), "enabled", json_true());
@@ -85,6 +102,11 @@ json_t * get_user_database(struct config_elements * config, const char * usernam
           json_array_append(json_object_get(json_array_get(j_result, 0), "scope"), json_object_get(j_scope_entry, "gs_name"));
         }
         json_decref(j_scope);
+        json_object_set_new(json_array_get(j_result, 0), "site", json_array());
+        json_array_foreach(j_site, i_site, j_site_entry) {
+          json_array_append(json_object_get(json_array_get(j_result, 0), "site"), json_object_get(j_site_entry, "gs_name"));
+        }
+        json_decref(j_site);
         json_object_set_new(json_array_get(j_result, 0), "source", json_string("database"));
         
         if (config->additional_property_name != NULL && o_strlen(config->additional_property_name)) {
