@@ -267,7 +267,7 @@ int serialize_session_token(struct config_elements * config, const char * userna
 /**
  * Generates a refresh_token from the specified parameters that are considered valid
  */
-char * generate_refresh_token(struct config_elements * config, const char * client_id, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, time_t now) {
+char * generate_refresh_token(struct config_elements * config, const char * client_id, const char * login, const char * name, const uint auth_type, const char * ip_source, const char * scope_list, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -277,7 +277,8 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
     // Build jwt payload
     rand_string(salt, GLEWLWYD_SALT_LENGTH);
     jwt_add_grant(jwt, "salt", salt);
-    jwt_add_grant(jwt, "username", username);
+    jwt_add_grant(jwt, "sub", login);
+    jwt_add_grant(jwt, "name", name);
     jwt_add_grant(jwt, "type", "refresh_token");
     jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
@@ -293,7 +294,7 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
     }
     token = jwt_encode_str(jwt);
     if (token != NULL) {
-      if (serialize_refresh_token(config, client_id, username, auth_type, ip_source, token, scope_list, now) != G_OK) {
+      if (serialize_refresh_token(config, client_id, login, auth_type, ip_source, token, scope_list, now) != G_OK) {
         y_log_message(Y_LOG_LEVEL_ERROR, "generate_refresh_token - Error serializing token");
       }
     } else {
@@ -309,7 +310,7 @@ char * generate_refresh_token(struct config_elements * config, const char * clie
 /**
  * Generates a access_token from the specified parameters that are considered valid
  */
-char * generate_access_token(struct config_elements * config, const char * refresh_token, const char * username, const uint auth_type, const char * ip_source, const char * scope_list, const char * additional_property_name, const char * additional_property_value, time_t now) {
+char * generate_access_token(struct config_elements * config, const char * refresh_token, const char * login, const char * name, const uint auth_type, const char * ip_source, const char * scope_list, const char * additional_property_name, const char * additional_property_value, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -319,7 +320,8 @@ char * generate_access_token(struct config_elements * config, const char * refre
     // Build jwt payload
     rand_string(salt, GLEWLWYD_SALT_LENGTH);
     jwt_add_grant(jwt, "salt", salt);
-    jwt_add_grant(jwt, "username", username);
+    jwt_add_grant(jwt, "sub", login);
+    jwt_add_grant(jwt, "name", name);
     jwt_add_grant(jwt, "type", "access_token");
     jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
@@ -351,7 +353,7 @@ char * generate_access_token(struct config_elements * config, const char * refre
 /**
  * Generates a session_token from the specified parameters that are considered valid
  */
-char * generate_session_token(struct config_elements * config, const char * username, const char * ip_source, time_t now) {
+char * generate_session_token(struct config_elements * config, const char * login, const char * name, const char * ip_source, time_t now) {
   jwt_t * jwt;
   char * token = NULL;
   char salt[GLEWLWYD_SALT_LENGTH + 1] = {0};
@@ -361,7 +363,8 @@ char * generate_session_token(struct config_elements * config, const char * user
     // Build jwt payload
     rand_string(salt, GLEWLWYD_SALT_LENGTH);
     jwt_add_grant(jwt, "salt", salt);
-    jwt_add_grant(jwt, "username", username);
+    jwt_add_grant(jwt, "sub", login);
+    jwt_add_grant(jwt, "name", name);
     jwt_add_grant(jwt, "type", "session_token");
     jwt_add_grant(jwt, "iss", config->issuer);
     jwt_add_grant_int(jwt, "iat", now);
@@ -373,7 +376,7 @@ char * generate_session_token(struct config_elements * config, const char * user
     if (token == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "generate_session_token - generating token");
     } else {
-      if (serialize_session_token(config, username, ip_source, token, now) != G_OK) {
+      if (serialize_session_token(config, login, ip_source, token, now) != G_OK) {
         y_log_message(Y_LOG_LEVEL_ERROR, "generate_session_token - Error serializing session_token");
       }
     }

@@ -1630,7 +1630,7 @@ int build_config_from_file(struct config_elements * config) {
     }
     // Perform autocheck of the jwt configuration to validate the certificates
     time(&now);
-    session_token = generate_session_token(config, GLEWLWYD_CHECK_JWT_USERNAME, "127.0.0.1", now);
+    session_token = generate_session_token(config, GLEWLWYD_CHECK_JWT_USERNAME, "call me Lew", "127.0.0.1", now);
     if (session_token != NULL) {
       if (jwt_decode(&jwt_check, session_token, (const unsigned char *)config->jwt_decode_key, strlen(config->jwt_decode_key)) || jwt_get_alg(jwt_check) != jwt_get_alg(config->jwt)) {
         fprintf(stderr, "Error autocheck jwt, step session_token validate\n");

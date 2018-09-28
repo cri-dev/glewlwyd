@@ -151,7 +151,7 @@ int callback_glewlwyd_validate_user_session (const struct _u_request * request, 
     // Store session cookie
     j_user = get_user(config, u_map_get(request->map_post_body, "username"), NULL);
     if (check_result_value(j_user, G_OK)) {
-      session_token = generate_session_token(config, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), ip_source, now);
+      session_token = generate_session_token(config, json_string_value(json_object_get(json_object_get(j_user, "user"), "login")), json_string_value(json_object_get(json_object_get(j_user, "user"), "name")), ip_source, now);
       if (0 == o_strcmp(u_map_get(request->map_post_body, "remember"), "true")) {
         max_age = config->session_expiration;
       }
